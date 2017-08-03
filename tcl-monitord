@@ -35,11 +35,34 @@ proc istrue {v} {
 	expr {[string tolower $v] == "true" || $v == "1"}
 }
 
+proc tclmon-module {name script} {
+	namespace eval ::tclmon::$name [list set modname $name]
+
+	namespace eval ::tclmon::$name {
+		proc m {a b} {
+			proc $a {n uh h c t} $b
+		}
+
+		proc func {name script} {
+			proc $name {n uh h c t} $script
+		}
+
+		proc mgetconf {args} [list ::tclmon::gmconf $modname {{*}$args}]
+
+		foreach i $::tclmon::commands {
+			namespace import [format {::tclmon::%s} $i]
+		}
+	}
+
+	namespace eval ::tclmon::$name $script
+}
+
 namespace eval ::tclmon {
 # An eggdrop script to allow easier monitoring of the system.
 
-foreach {v} {config unixtype reporthost help prefixes infixes} {variable $v}
-namespace export deformat putprivmsg gmconf getconf pub2msg
+foreach {v} {config unixtype reporthost help prefixes infixes commands} {variable $v}
+variable commands [list deformat putprivmsg gmconf getconf pub2msg func m]
+namespace export {*}$commands
 namespace ensemble create 
 
 proc ::tclmon::istrue {v} {
@@ -86,6 +109,8 @@ proc ::tclmon::putprivmsg {targ mod msg {tn {}}} {
 	if {![validchan $targ] && [getconf notice_pv] == 1} {set comd NOTICE} {set comd PRIVMSG}
 	putquick [format "%s %s :%s" $comd $targ $line]
 }
+
+
 
 proc ::tclmon::pub2msg {procedure args} {
 	foreach {n uh h t} $args {break}
