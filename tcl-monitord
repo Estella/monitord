@@ -1,0 +1,154 @@
+#! /bin/echo The following script is an Eggdrop script: 
+
+package require json
+source jimson.tcl
+
+proc putwarning {script message {letter W}} {
+	putlog [format {(%s) %s: %s} $script $letter $message]
+}
+
+
+namespace eval ::perl {
+if {[catch {package require lexec} err]} {
+	putwarning tcl-monitord "load lexec failed. Perl support risky."
+	proc ::perl::exec {args} {exec {*}$args}
+} {
+	package require lexec
+	proc ::perl::exec {args} {::lexec::exec | $args}
+}
+
+::proc apply {script args} {
+	exec perl -e $script {*}$args
+}
+
+::proc alias {name script} {
+	::proc $name {args} [list ::perl::exec perl -e $script {*}$args]
+}
+#Want to split this off some day.
+
+}
+
+#perl -MJSON -MProc::ProcessTable -e 'print to_json ( [ map {{ %$_ }} @{ Proc::ProcessTable->new->table } ], { pretty => 1 } );' | less
+
+
+proc istrue {v} {
+	expr {[string tolower $v] == "true" || $v == "1"}
+}
+
+namespace eval ::tclmon {
+# An eggdrop script to allow easier monitoring of the system.
+
+foreach {v} {config unixtype reporthost help prefixes infixes} {variable $v}
+namespace export deformat putprivmsg gmconf getconf pub2msg
+namespace ensemble create 
+
+proc ::tclmon::istrue {v} {
+	expr {[string tolower $v] == "true" || $v == "1"}
+}
+
+proc ::tclmon::ifistrue {v args} {
+	if {[istrue $v]} {{*}$args}
+}
+
+proc ::tclmon::processcommands {} {
+	foreach {v} {config unixtype reporthost help prefixes infixes} {variable $v}
+	set commands [getconf commands]
+	foreach {k v} $commands {
+		foreach {perms public procedure} $v {break}
+		foreach prefix $prefixes {
+			foreach infix $infixes {
+				foreach host [aliashosts] {
+					uplevel 1 source [format {monitord/%s.tcl} [lindex [set proce [split $procedure "/"]] 0]]
+					set com [format {%s%s%s%s} $prefix $host $infix $k]
+					set ecorp [lreverse $proce]
+					lappend ecorp tclmon
+					set proce [lreverse $ecorp]
+					unset ecorp
+					catch {unbind msg $perms [list ::tclmon::pub2msg [join $proce "::"]]}
+					catch {unbind pub $perms $com}
+					bind msg $perms $com [list ::tclmon::pub2msg [join $proce "::"]]
+					ifistrue $public bind pub $perms $com [join $proce "::"]
+				}
+			}
+		}
+	}
+}
+
+proc ::tclmon::deformat {str} {
+	variable reporthost
+	string map [list %c "\x03" %b "\x02" %o "\x0f" %h $reporthost] $str
+}
+
+proc ::tclmon::putprivmsg {targ mod msg {tn {}}} {
+	variable reporthost
+	if {$tn == {}} {set targnick ""} {set targnick [format {%s%s%s } [getconf precomma] $tn [getconf comma]]}
+	set line [string map [list %c "\x03" %b "\x02" %o "\x0f" %h $reporthost %u $mod %m $msg %n $targnick] [getconf msgfmt]]
+	if {![validchan $targ] && [getconf notice_pv] == 1} {set comd NOTICE} {set comd PRIVMSG}
+	putquick [format "%s %s :%s" $comd $targ $line]
+}
+
+proc ::tclmon::pub2msg {procedure args} {
+	foreach {n uh h t} $args {break}
+	set c $n
+	$procedure $n $uh $h $c $t
+}
+
+proc ::tclmon::gmconf {module args} {
+	getconf modules $module {*}$args
+}
+
+proc ::tclmon::rehsh {{ign {}}} {
+	foreach {k v} {
+
+comma :
+precomma ""
+msgfmt "\[%c13%h->%c06%u%c\] %n%m"
+prefixchar @!
+infix {: ->}
+notice_pv 1
+
+}	{
+		dict set ::tclmon::config $k $v
+	}
+
+	foreach {k v} [dejsonate [format {./%s.monitord.conf} ${::database-basename}]] {
+		dict set ::tclmon::config $k $v
+	}
+	set ::tclmon::reporthost [dict get $::tclmon::config hostname]
+
+	set ::tclmon::prefixes [split [getconf prefixchar] {}]
+	set ::tclmon::infixes [getconf infix]
+	
+	processcommands
+}
+
+proc ::tclmon::dejsonate {path} {
+	set fd [open $path r]
+	set data [read $fd]
+	close $fd
+	::json::json2dict $data
+}
+
+
+foreach opt {o m r i n} {
+	dict set unixtype $opt [::perl::exec uname -$opt]
+}
+
+proc ::tclmon::getconf {args} {
+	variable config
+	dict get $::tclmon::config {*}$args
+}
+
+proc ::tclmon::aliashosts {} {
+	variable config
+	set longform [dict get $config hostname] 
+	set shorts [dict get $config shorthost]
+	lappend shorts $longform
+	return $shorts 
+}
+
+#rehsh
+
+bind evnt - rehash [namespace current]::rehsh
+
+};# namespace eval ::tclmon
