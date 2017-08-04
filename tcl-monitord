@@ -11,7 +11,7 @@ proc putwarning {script message {letter W}} {
 namespace eval ::perl {
 if {[catch {package require lexec} err]} {
 	putwarning tcl-monitord "load lexec failed. Perl support risky."
-	proc ::perl::exec {args} {exec {*}$args}
+	proc ::perl::exec {args} {::exec {*}$args}
 } {
 	package require lexec
 	proc ::perl::exec {args} {::lexec::exec | $args}
