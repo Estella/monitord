@@ -36,25 +36,30 @@ proc istrue {v} {
 }
 
 proc tclmon-module {name script} {
-	namespace eval ::tclmon::$name [list set modname $name]
+	namespace eval ::tclmon::modules::$name [format {set modname %s} $name]
 
-	namespace eval ::tclmon::$name {
+	namespace eval ::tclmon::modules::$name {
 		proc m {a b} {
+			variable modname
 			proc $a {n uh h c t} $b
+			# /!\ Veritably an interesting hack to attempt to parley a public
+			# proc into a private proc. XXX /!\
+			proc ::tclmon::modules_pv::$modname::$a {n uh h t} [format "::tclmon::modules::%s::%s %s\n" $modname $a {$n $uh $h $n $t}]
 		}
 
 		proc func {name script} {
-			proc $name {n uh h c t} $script
+			m $name $script
 		}
 
-		proc mgetconf {args} [list ::tclmon::gmconf $modname {{*}$args}]
+		# /!\ XXX /!\ hack alert
+		proc mgetconf {args} [format {::tclmon::gmconf %s %s} $modname {{*}$args}]
 
 		foreach i $::tclmon::commands {
 			namespace import [format {::tclmon::%s} $i]
 		}
 	}
 
-	namespace eval ::tclmon::$name $script
+	namespace eval ::tclmon::modules::$name $script
 }
 
 namespace eval ::tclmon {
@@ -85,12 +90,34 @@ proc ::tclmon::processcommands {} {
 					set com [format {%s%s%s%s} $prefix $host $infix $k]
 					set ecorp [lreverse $proce]
 					lappend ecorp tclmon
+					set vpecorp $ecorp
+					lappend ecorp modules
+					lappend vpecorp modules_pv
 					set proce [lreverse $ecorp]
+					set procepv [lreverse $vpecorp]
 					unset ecorp
-					catch {unbind msg $perms [list ::tclmon::pub2msg [join $proce "::"]]}
+					unset vpecorp
+					catch {unbind msg $perms $com}
 					catch {unbind pub $perms $com}
-					bind msg $perms $com [list ::tclmon::pub2msg [join $proce "::"]]
+					bind msg $perms $com [join $procepv "::"]
 					ifistrue $public bind pub $perms $com [join $proce "::"]
+				}
+			}
+		}
+	}
+}
+
+proc ::tclmon::unbindcommands {} {
+	foreach {v} {config unixtype reporthost help prefixes infixes} {variable $v}
+	set commands [getconf commands]
+	foreach {k v} $commands {
+		foreach {perms public procedure} $v {break}
+		foreach prefix $prefixes {
+			foreach infix $infixes {
+				foreach host [aliashosts] {
+					set com [format {%s%s%s%s} $prefix $host $infix $k]
+					catch {unbind msg $perms $com}
+					catch {unbind pub $perms $com}
 				}
 			}
 		}
@@ -120,6 +147,10 @@ proc ::tclmon::pub2msg {procedure args} {
 
 proc ::tclmon::gmconf {module args} {
 	getconf modules $module {*}$args
+}
+
+proc ::tclmon::prerehsh {{ign {}}} {
+	unbindcommands
 }
 
 proc ::tclmon::rehsh {{ign {}}} {
@@ -174,6 +205,7 @@ proc ::tclmon::aliashosts {} {
 
 #rehsh
 
+bind evnt - prerehash [namespace current]::prerehsh
 bind evnt - rehash [namespace current]::rehsh
 
 };# namespace eval ::tclmon

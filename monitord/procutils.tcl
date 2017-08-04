@@ -1,4 +1,4 @@
-namespace eval ::tclmon::procutils {
+tclmon-module procutils {
 
 	switch -exact -- [dict get ${::tclmon::unixtype} o] {
 		"FreeBSD" {
@@ -33,7 +33,7 @@ namespace eval ::tclmon::procutils {
 		}
 	}
 
-	proc m_ps {n uh h c t} {
+	func m_ps {
 		set arg [split $t " "]
 		set action [lindex $arg 0]
 		switch -exact -- [string tolower $action] {
