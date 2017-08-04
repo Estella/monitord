@@ -120,7 +120,7 @@ proc ::tclmon::unbindcommands {} {
 		foreach prefix $prefixes {
 			foreach infix $infixes {
 				foreach host [aliashosts] {
-					[set proce [split $procedure "/"]]
+					set proce [split $procedure "/"]
 					set com [format {%s%s%s%s} $prefix $host $infix $k]
 					set ecorp [lreverse $proce]
 					set vpecorp $ecorp
