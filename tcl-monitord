@@ -38,13 +38,16 @@ proc istrue {v} {
 proc tclmon-module {name script} {
 	namespace eval ::tclmon::modules::$name [format {set modname %s} $name]
 
+	namespace eval ::tclmon::modules_pv::$name [format {set modname %s} $name]
+
 	namespace eval ::tclmon::modules::$name {
 		proc m {a b} {
 			variable modname
 			proc $a {n uh h c t} $b
 			# /!\ Veritably an interesting hack to attempt to parley a public
 			# proc into a private proc. XXX /!\
-			proc ::tclmon::modules_pv::$modname::$a {n uh h t} [format "::tclmon::modules::%s::%s %s\n" $modname $a {$n $uh $h $n $t}]
+			namespace eval ::tclmon::modules_pv::$modname {}
+			proc ::tclmon::modules_pv::${modname}::$a {n uh h t} [format "::tclmon::modules::%s::%s %s\n" $modname $a {$n $uh $h $n $t}]
 		}
 
 		proc func {name script} {
@@ -80,6 +83,7 @@ proc ::tclmon::ifistrue {v args} {
 
 proc ::tclmon::processcommands {} {
 	foreach {v} {config unixtype reporthost help prefixes infixes} {variable $v}
+	
 	set commands [getconf commands]
 	foreach {k v} $commands {
 		foreach {perms public procedure} $v {break}
