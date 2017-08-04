@@ -48,7 +48,6 @@ tclmon-module procutils {
 				set trunc 0
 				tclmon putprivmsg $c procutils::ps "Here's what you asked for: " $n
 				set dn [list]
-				putlog [split [string tolower [lindex $aarg 0]] ","]
 				foreach dict [ps [split [string tolower [lindex $aarg 0]] ","]] {
 					set display 0
 					set dt [list]

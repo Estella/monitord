@@ -89,16 +89,17 @@ proc ::tclmon::processcommands {} {
 					uplevel 1 source [format {monitord/%s.tcl} [lindex [set proce [split $procedure "/"]] 0]]
 					set com [format {%s%s%s%s} $prefix $host $infix $k]
 					set ecorp [lreverse $proce]
-					lappend ecorp tclmon
 					set vpecorp $ecorp
 					lappend ecorp modules
+					lappend ecorp tclmon
 					lappend vpecorp modules_pv
+					lappend vpecorp tclmon
 					set proce [lreverse $ecorp]
 					set procepv [lreverse $vpecorp]
 					unset ecorp
 					unset vpecorp
-					catch {unbind msg $perms $com}
-					catch {unbind pub $perms $com}
+					catch {unbind msg $perms $com [join $procepv "::"]}
+					catch {unbind pub $perms $com [join $proce "::"]}
 					bind msg $perms $com [join $procepv "::"]
 					ifistrue $public bind pub $perms $com [join $proce "::"]
 				}
@@ -116,8 +117,18 @@ proc ::tclmon::unbindcommands {} {
 			foreach infix $infixes {
 				foreach host [aliashosts] {
 					set com [format {%s%s%s%s} $prefix $host $infix $k]
-					catch {unbind msg $perms $com}
-					catch {unbind pub $perms $com}
+					set ecorp [lreverse $proce]
+					set vpecorp $ecorp
+					lappend ecorp modules
+					lappend ecorp tclmon
+					lappend vpecorp modules_pv
+					lappend vpecorp tclmon
+					set proce [lreverse $ecorp]
+					set procepv [lreverse $vpecorp]
+					unset ecorp
+					unset vpecorp
+					catch {unbind msg $perms $com [join $procepv "::"]}
+					catch {unbind pub $perms $com [join $proce "::"]}
 				}
 			}
 		}
