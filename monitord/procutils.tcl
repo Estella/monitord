@@ -4,7 +4,7 @@ tclmon-module procutils {
 		"FreeBSD" {
 			proc ps {{wante {pid user uid pcpu ruid ruser args time}}} {
 				if {[istrue [tclmon gmconf procutils sudops]]} {set ps {sudo ps}} {set ps {ps}}
-				set command [list {*}$ps --libxo json -a]
+				set command [list {*}$ps --libxo json -a -x ]
 				set comte 0
 				foreach want $wante {
 					if {[set want [string tolower $want]] == "arguments" || [set want [string tolower $want]] == "args" || [set want [string tolower $want]] == "command" || [set want [string tolower $want]] == "comm"} {
