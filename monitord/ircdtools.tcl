@@ -31,6 +31,4 @@ func m_mkill {
 	putprivmsg $c ircdtools::mkill "I ask that you now reflect on what you have done. Was it the right choice? Did you need to disconnect so many people?" $n
 }
 
-func m_
-
 }
