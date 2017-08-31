@@ -36,9 +36,9 @@ proc istrue {v} {
 }
 
 proc tclmon-module {name script} {
-	namespace eval ::tclmon::modules::$name [format {set modname %s} $name]
+	namespace eval ::tclmon::modules::$name [list set modname $name]
 
-	namespace eval ::tclmon::modules_pv::$name [format {set modname %s} $name]
+	namespace eval ::tclmon::modules_pv::$name [list set modname $name]
 
 	namespace eval ::tclmon::modules::$name {
 		proc m {a b} {
@@ -69,7 +69,7 @@ namespace eval ::tclmon {
 # An eggdrop script to allow easier monitoring of the system.
 
 foreach {v} {config unixtype reporthost help prefixes infixes commands} {variable $v}
-variable commands [list deformat putprivmsg gmconf getconf pub2msg func m]
+variable commands [list deformat putprivmsg gmconf getconf pub2msg func m json2var]
 namespace export {*}$commands
 namespace ensemble create 
 
@@ -82,11 +82,29 @@ proc ::tclmon::ifistrue {v args} {
 }
 
 proc ::tclmon::processcommands {} {
-	foreach {v} {config unixtype reporthost help prefixes infixes} {variable $v}
+	foreach {v} {config unixtype reporthost help prefixes nohostprefix infixes} {variable $v}
 	
 	set commands [getconf commands]
 	foreach {k v} $commands {
 		foreach {perms public procedure} $v {break}
+    foreach prefix $nohostprefix {
+      uplevel 1 source [format {monitord/%s.tcl} [lindex [set proce [split $procedure "/"]] 0]]
+      set com [format {%s%s} $prefix $k]
+      set ecorp [lreverse $proce]
+      set vpecorp $ecorp
+      lappend ecorp modules
+      lappend ecorp tclmon
+      lappend vpecorp modules_pv
+      lappend vpecorp tclmon
+      set proce [lreverse $ecorp]
+      set procepv [lreverse $vpecorp]
+      unset ecorp
+      unset vpecorp
+      catch {unbind msg $perms $com [join $procepv "::"]}
+      catch {unbind pub $perms $com [join $proce "::"]}
+      bind msg $perms $com [join $procepv "::"]
+      ifistrue $public bind pub $perms $com [join $proce "::"]
+    }
 		foreach prefix $prefixes {
 			foreach infix $infixes {
 				foreach host [aliashosts] {
@@ -113,10 +131,26 @@ proc ::tclmon::processcommands {} {
 }
 
 proc ::tclmon::unbindcommands {} {
-	foreach {v} {config unixtype reporthost help prefixes infixes} {variable $v}
+	foreach {v} {config unixtype reporthost nohostprefix help prefixes infixes} {variable $v}
 	set commands [getconf commands]
 	foreach {k v} $commands {
 		foreach {perms public procedure} $v {break}
+    foreach prefix $nohostprefix {
+      uplevel 1 source [format {monitord/%s.tcl} [lindex [set proce [split $procedure "/"]] 0]]
+      set com [format {%s%s} $prefix $k]
+      set ecorp [lreverse $proce]
+      set vpecorp $ecorp
+      lappend ecorp modules
+      lappend ecorp tclmon
+      lappend vpecorp modules_pv
+      lappend vpecorp tclmon
+      set proce [lreverse $ecorp]
+      set procepv [lreverse $vpecorp]
+      unset ecorp
+      unset vpecorp
+      catch {unbind msg $perms $com [join $procepv "::"]}
+      catch {unbind pub $perms $com [join $proce "::"]}
+    }
 		foreach prefix $prefixes {
 			foreach infix $infixes {
 				foreach host [aliashosts] {
@@ -189,6 +223,7 @@ notice_pv 1
 	set ::tclmon::reporthost [dict get $::tclmon::config hostname]
 
 	set ::tclmon::prefixes [split [getconf prefixchar] {}]
+	set ::tclmon::nohostprefix [split [getconf nohostprefix] {}]
 	set ::tclmon::infixes [getconf infix]
 	
 	processcommands
@@ -199,6 +234,15 @@ proc ::tclmon::dejsonate {path} {
 	set data [read $fd]
 	close $fd
 	::json::json2dict $data
+}
+
+proc ::tclmon::json2var {path {varia ""}} {
+  if {$varia == ""} {return [list]}
+	set fd [open $path r]
+	set data [read $fd]
+	close $fd
+  upvar 1 $varia v
+	set v [::json::json2dict $data]
 }
 
 

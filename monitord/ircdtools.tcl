@@ -21,6 +21,7 @@ func m_mkill {
 	switch -exact -- [format {_%s} [llength $parv]] {
 		_0 - _1 {
 			putprivmsg $c ircdtools::mkill "Not enough parameters." $n
+      return
 		}
 	}
 	set target [split [lindex $parv 0] ","]

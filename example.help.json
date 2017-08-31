@@ -1,0 +1,19 @@
+{
+  "start": {
+    "d": "Help Index",
+    "ml": 1,
+    "v": [
+      "This is a short help index.",
+      "",
+      "This bot only has one help entry.",
+      "example - example help"
+    ]
+  },
+  "example": {
+    "ml": 1,
+    "v": [
+      "This is an example multi-line help topic.",
+      "Which, has multiple lines."
+    ]
+  }
+}
